@@ -88,18 +88,51 @@ async function handleAIAssistance(action, sendResponse) {
       // Fallback injection via Content script if MAIN fails
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: (newCode) => {
+        func: async (newCode) => {
+          // 1. Always copy to clipboard as a bulletproof failsafe
+          try {
+            await navigator.clipboard.writeText(newCode);
+          } catch(e) {
+            console.warn("Clipboard write failed", e);
+          }
+
+          // 2. Try aggressive React Fiber traversal for Monaco
+          const editorNode = document.querySelector('.monaco-editor');
+          if (editorNode) {
+            try {
+              const reactKey = Object.keys(editorNode).find(k => k.startsWith('__reactFiber$'));
+              if (reactKey) {
+                let fiber = editorNode[reactKey];
+                while (fiber) {
+                  if (fiber.stateNode && fiber.stateNode.editor && typeof fiber.stateNode.editor.setValue === 'function') {
+                    fiber.stateNode.editor.setValue(newCode);
+                    return;
+                  }
+                  fiber = fiber.return;
+                }
+              }
+            } catch(e) {}
+          }
+
+          // 3. Try to force insert it via DOM events
           const textarea = document.querySelector('textarea.inputarea') || document.querySelector('.cm-content') || document.querySelector('[contenteditable="true"]');
           if (textarea) {
             textarea.focus();
-            if (textarea.select) textarea.select();
-            else {
-              const range = document.createRange();
-              range.selectNodeContents(textarea);
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(range);
-            }
+            
+            // Force select all text in the editor
+            textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, metaKey: true, bubbles: true }));
+            document.execCommand('selectAll', false, null);
+            
+            // Dispatch a true paste event which Monaco listens to
+            const pasteEvent = new ClipboardEvent('paste', {
+              clipboardData: new DataTransfer(),
+              bubbles: true,
+              cancelable: true
+            });
+            pasteEvent.clipboardData.setData('text/plain', newCode);
+            textarea.dispatchEvent(pasteEvent);
+            
+            // As a secondary attempt, execCommand insert
             document.execCommand('insertText', false, newCode);
           }
         },
@@ -107,7 +140,7 @@ async function handleAIAssistance(action, sendResponse) {
       });
     }
     
-    await chrome.tabs.sendMessage(tab.id, { action: 'SHOW_TOAST', message: 'Code inserted successfully!' });
+    await chrome.tabs.sendMessage(tab.id, { action: 'SHOW_TOAST', message: 'Solved! Code auto-inserted into editor.' });
     
     sendResponse({ success: true });
   } catch (error) {
