@@ -21,7 +21,7 @@
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/codest0411/DevMate---extension.git
+   git clone https://github.com/codest0411/DevMate-xtension.git
    ```
 2. **Open Chrome Extensions**
    - Navigate to `chrome://extensions/` in your browser.
