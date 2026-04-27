@@ -37,6 +37,13 @@
 6. **Start Hacking!**
    - Head over to any FreeCodeCamp challenge, click the extension, and press **Solve Challenge** or **Fix Errors**.
 
+## 🔮 Upcoming Features
+- 🗣️ **Explanation Mode**: Get a step-by-step breakdown of *why* the code works, not just the solution.
+- ⌨️ **Keyboard Shortcuts**: Trigger "Solve" or "Fix" instantly without clicking the extension icon.
+- 🎨 **Syntax Highlighting**: Pre-render the AI-generated code in the popup before injecting it into the editor.
+- 🔄 **Custom AI Models**: Support for alternative API endpoints (e.g., Anthropic Claude, Google Gemini, Local LLMs via Ollama).
+- 📂 **Multi-file Support**: Expand support to projects with multiple files (HTML/CSS/JS) within the FreeCodeCamp environment.
+
 ## 🏗️ Architecture & Tech Stack
 - **Manifest V3**: State-of-the-art secure and performant Chrome extension architecture.
 - **Service Workers**: Non-persistent background scripts for API communication.
