@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "DevMate AI — FreeCodeCamp Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered assistant that integrates with FreeCodeCamp to solve challenges and fix errors.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.freecodecamp.org/*",
+    "https://api.openai.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DevMate AI"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.freecodecamp.org/learn/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
