@@ -23,6 +23,33 @@ async function handleAIAssistance(action, sendResponse) {
 
     const extractedData = await chrome.tabs.sendMessage(tab.id, { action: 'EXTRACT_DATA' });
     
+    // Extract code securely from MAIN world bypassing CSP
+    let code = '';
+    try {
+      const codeResults = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        func: () => {
+          if (window.monaco && window.monaco.editor.getModels().length > 0) {
+            return window.monaco.editor.getModels()[0].getValue();
+          } else if (document.querySelector('.CodeMirror') && document.querySelector('.CodeMirror').CodeMirror) {
+            return document.querySelector('.CodeMirror').CodeMirror.getValue();
+          }
+          return '';
+        }
+      });
+      if (codeResults && codeResults[0] && codeResults[0].result) {
+        code = codeResults[0].result;
+      }
+    } catch (e) {
+      console.warn("DevMate: Could not extract from MAIN world", e);
+    }
+
+    if (!code) {
+      code = extractedData.fallbackCode;
+    }
+    extractedData.code = code;
+    
     if (!extractedData.question && !extractedData.code) {
       sendResponse({ success: false, error: 'COULD_NOT_EXTRACT' });
       return;
@@ -30,7 +57,55 @@ async function handleAIAssistance(action, sendResponse) {
 
     const aiResponse = await callOpenAI(apiKey, action, extractedData);
     
-    await chrome.tabs.sendMessage(tab.id, { action: 'INSERT_CODE', code: aiResponse });
+    // Insert code securely from MAIN world bypassing CSP
+    let inserted = false;
+    try {
+      const insertResults = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        func: (newCode) => {
+          if (window.monaco && window.monaco.editor.getModels().length > 0) {
+            window.monaco.editor.getModels()[0].setValue(newCode);
+            return true;
+          } else if (document.querySelector('.CodeMirror') && document.querySelector('.CodeMirror').CodeMirror) {
+            document.querySelector('.CodeMirror').CodeMirror.setValue(newCode);
+            return true;
+          }
+          return false;
+        },
+        args: [aiResponse]
+      });
+      if (insertResults && insertResults[0] && insertResults[0].result) {
+        inserted = true;
+      }
+    } catch (e) {
+      console.warn("DevMate: Could not insert into MAIN world", e);
+    }
+
+    if (!inserted) {
+      // Fallback injection via Content script if MAIN fails
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (newCode) => {
+          const textarea = document.querySelector('textarea.inputarea') || document.querySelector('.cm-content') || document.querySelector('[contenteditable="true"]');
+          if (textarea) {
+            textarea.focus();
+            if (textarea.select) textarea.select();
+            else {
+              const range = document.createRange();
+              range.selectNodeContents(textarea);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+            document.execCommand('insertText', false, newCode);
+          }
+        },
+        args: [aiResponse]
+      });
+    }
+    
+    await chrome.tabs.sendMessage(tab.id, { action: 'SHOW_TOAST', message: 'Code inserted successfully!' });
     
     sendResponse({ success: true });
   } catch (error) {

@@ -1,14 +1,3 @@
-// Inject script to interact with page context
-const injectCode = () => {
-  if (document.getElementById('devmate-injected-script')) return;
-  const script = document.createElement('script');
-  script.id = 'devmate-injected-script';
-  script.src = chrome.runtime.getURL('inject.js');
-  document.documentElement.appendChild(script);
-};
-
-injectCode();
-
 function getChallengeText() {
   const instructionElement = document.querySelector('#description') || 
                              document.querySelector('.challenge-instructions') || 
@@ -22,36 +11,25 @@ function getConsoleErrors() {
   return outputEl ? outputEl.innerText.trim() : '';
 }
 
+function getFallbackCode() {
+  const editor = document.querySelector('.monaco-editor') || document.querySelector('.CodeMirror') || document.querySelector('.cm-content');
+  return editor ? editor.innerText : '';
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'EXTRACT_DATA') {
     const question = getChallengeText();
     const error = getConsoleErrors();
+    const fallbackCode = getFallbackCode();
     
-    // Request code from injected script
-    const onCodeResult = (e) => {
-      clearTimeout(fallbackTimeout);
-      window.removeEventListener('FCC_CODE_RESULT', onCodeResult);
-      sendResponse({ question, code: e.detail, error });
-    };
-
-    const fallbackTimeout = setTimeout(() => {
-      window.removeEventListener('FCC_CODE_RESULT', onCodeResult);
-      let fallbackCode = '';
-      const editor = document.querySelector('.monaco-editor') || document.querySelector('.CodeMirror') || document.querySelector('.cm-content');
-      if (editor) fallbackCode = editor.innerText;
-      sendResponse({ question, code: fallbackCode, error });
-    }, 3000);
-
-    window.addEventListener('FCC_CODE_RESULT', onCodeResult);
-    window.dispatchEvent(new CustomEvent('GET_FCC_CODE'));
-    
-    return true; // async response
+    sendResponse({ question, error, fallbackCode });
+    return false; // synchronous response
   }
   
-  if (request.action === 'INSERT_CODE') {
-    window.dispatchEvent(new CustomEvent('SET_FCC_CODE', { detail: request.code }));
-    showToast('Code inserted successfully!', 'success');
+  if (request.action === 'SHOW_TOAST') {
+    showToast(request.message, 'success');
     sendResponse({ success: true });
+    return false;
   }
 });
 
