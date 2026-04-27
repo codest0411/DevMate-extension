@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const val = apiKeyInput.value.trim();
     if (val.startsWith('gsk_')) {
       apiUrlInput.value = 'https://api.groq.com/openai/v1/chat/completions';
-      apiModelInput.value = 'llama3-70b-8192';
+      apiModelInput.value = 'llama-3.3-70b-versatile';
     } else if (val.startsWith('sk-')) {
       apiUrlInput.value = 'https://api.openai.com/v1/chat/completions';
       apiModelInput.value = 'gpt-4o';
