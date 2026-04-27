@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const backBtn = document.getElementById('back-btn');
   const saveKeyBtn = document.getElementById('save-key-btn');
   const apiKeyInput = document.getElementById('api-key');
+  const apiUrlInput = document.getElementById('api-url');
+  const apiModelInput = document.getElementById('api-model');
   
   const solveBtn = document.getElementById('solve-btn');
   const fixBtn = document.getElementById('fix-btn');
@@ -13,16 +15,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsStatus = document.getElementById('settings-status');
 
   // Check if API key exists
-  const { openai_api_key } = await chrome.storage.local.get('openai_api_key');
-  if (!openai_api_key) {
+  const data = await chrome.storage.local.get(['openai_api_key', 'api_url', 'api_model']);
+  if (!data.openai_api_key) {
+    apiUrlInput.value = data.api_url || 'https://api.openai.com/v1/chat/completions';
+    apiModelInput.value = data.api_model || 'gpt-4o';
     showView(settingsView);
   }
 
   // Navigation
   settingsBtn.addEventListener('click', async () => {
-    const { openai_api_key } = await chrome.storage.local.get('openai_api_key');
-    if (openai_api_key) apiKeyInput.value = openai_api_key;
+    const data = await chrome.storage.local.get(['openai_api_key', 'api_url', 'api_model']);
+    if (data.openai_api_key) apiKeyInput.value = data.openai_api_key;
+    apiUrlInput.value = data.api_url || 'https://api.openai.com/v1/chat/completions';
+    apiModelInput.value = data.api_model || 'gpt-4o';
     showView(settingsView);
+  });
+
+  // Auto-detect Provider
+  apiKeyInput.addEventListener('input', () => {
+    const val = apiKeyInput.value.trim();
+    if (val.startsWith('gsk_')) {
+      apiUrlInput.value = 'https://api.groq.com/openai/v1/chat/completions';
+      apiModelInput.value = 'llama3-70b-8192';
+    } else if (val.startsWith('sk-')) {
+      apiUrlInput.value = 'https://api.openai.com/v1/chat/completions';
+      apiModelInput.value = 'gpt-4o';
+    }
   });
 
   backBtn.addEventListener('click', () => {
@@ -33,13 +51,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Save API Key
   saveKeyBtn.addEventListener('click', async () => {
     const key = apiKeyInput.value.trim();
+    const url = apiUrlInput.value.trim() || 'https://api.openai.com/v1/chat/completions';
+    const model = apiModelInput.value.trim() || 'gpt-4o';
+    
     if (!key) {
       showSettingsStatus('Please enter a valid API key.', 'error');
       return;
     }
     
-    await chrome.storage.local.set({ openai_api_key: key });
-    showSettingsStatus('API Key saved successfully!', 'success');
+    await chrome.storage.local.set({ openai_api_key: key, api_url: url, api_model: model });
+    showSettingsStatus('Settings saved successfully!', 'success');
     
     setTimeout(() => {
       settingsStatus.textContent = '';

@@ -10,7 +10,8 @@
   ],
   "host_permissions": [
     "https://*.freecodecamp.org/*",
-    "https://api.openai.com/*"
+    "https://*/*",
+    "http://localhost/*"
   ],
   "action": {
     "default_popup": "popup.html",

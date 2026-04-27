@@ -7,8 +7,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleAIAssistance(action, sendResponse) {
   try {
-    const data = await chrome.storage.local.get('openai_api_key');
+    const data = await chrome.storage.local.get(['openai_api_key', 'api_url', 'api_model']);
     const apiKey = data.openai_api_key;
+    const apiUrl = data.api_url || 'https://api.openai.com/v1/chat/completions';
+    const apiModel = data.api_model || 'gpt-4o';
     
     if (!apiKey) {
       sendResponse({ success: false, error: 'API_KEY_MISSING' });
@@ -55,7 +57,7 @@ async function handleAIAssistance(action, sendResponse) {
       return;
     }
 
-    const aiResponse = await callOpenAI(apiKey, action, extractedData);
+    const aiResponse = await callOpenAI(apiKey, apiUrl, apiModel, action, extractedData);
     
     // Insert code securely from MAIN world bypassing CSP
     let inserted = false;
@@ -114,7 +116,7 @@ async function handleAIAssistance(action, sendResponse) {
   }
 }
 
-async function callOpenAI(apiKey, action, data) {
+async function callOpenAI(apiKey, apiUrl, apiModel, action, data) {
   const isFix = action === 'FIX_ERRORS';
   
   let prompt = "";
@@ -149,14 +151,14 @@ ${data.code}
 FINAL CODE:`;
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: apiModel,
       messages: [
         { role: 'user', content: prompt }
       ],
@@ -166,7 +168,14 @@ FINAL CODE:`;
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`API Error: ${response.status}`);
+    let errorDetail = response.status.toString();
+    try {
+      const parsed = JSON.parse(errorBody);
+      if (parsed.error && parsed.error.message) errorDetail += ` - ${parsed.error.message}`;
+    } catch(e) {
+      errorDetail += ` - ${errorBody}`;
+    }
+    throw new Error(`API Error: ${errorDetail}`);
   }
 
   const result = await response.json();
