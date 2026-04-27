@@ -34,7 +34,7 @@ async function handleAIAssistance(action, sendResponse) {
     
     sendResponse({ success: true });
   } catch (error) {
-    console.error("DevMate Background Error:", error);
+    console.warn("DevMate Background Warning:", error.message);
     sendResponse({ success: false, error: error.message });
   }
 }
